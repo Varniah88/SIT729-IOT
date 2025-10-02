@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IoT Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h1 { text-align: center; }
+        #alertBox {
+            margin: 20px 0;
+            padding: 10px;
+            font-weight: bold;
+            color: white;
+            background-color: green; /* default */
+            display: none; /* hidden initially */
+            text-align: center;
+            border-radius: 5px;
+        }
+        canvas { margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+    <h1>Room 101 Sensor Dashboard</h1>
+
+    <!-- Alert box -->
+    <div id="alertBox"></div>
+
+    <!-- Charts -->
+    <canvas id="tempChart" width="600" height="200"></canvas>
+    <canvas id="humidityChart" width="600" height="200"></canvas>
+    <canvas id="occupancyChart" width="600" height="200"></canvas>
+
+    <script>
+        // Pass server-side logs to client
+        const logs = JSON.parse('<%- JSON.stringify(logs) %>');
+
+        const times = logs.map(l => new Date(l.sensorData.time).toLocaleTimeString());
+        const temps = logs.map(l => l.sensorData.temperature);
+        const humidity = logs.map(l => l.sensorData.humidity);
+        const occupancy = logs.map(l => l.sensorData.occupancy);
+
+        const alertBox = document.getElementById('alertBox');
+
+        function showAlert(message, type="warning") {
+            alertBox.textContent = message;
+            if(type === "danger") alertBox.style.backgroundColor = "red";
+            else alertBox.style.backgroundColor = "orange";
+            alertBox.style.display = "block";
+        }
+
+        function hideAlert() {
+            alertBox.style.display = "none";
+        }
+
+        // Initial check for alerts from existing logs
+        logs.forEach(log => {
+            if(log.alert && log.alert !== "None") {
+                showAlert(log.alert, "danger");
+            }
+        });
+
+        const tempChart = new Chart(document.getElementById('tempChart').getContext('2d'), {
+            type: 'line',
+            data: { labels: times, datasets: [{ label: 'Temperature (°C)', data: temps, borderColor: 'red', fill: false }] }
+        });
+
+        const humidityChart = new Chart(document.getElementById('humidityChart').getContext('2d'), {
+            type: 'line',
+            data: { labels: times, datasets: [{ label: 'Humidity (%)', data: humidity, borderColor: 'blue', fill: false }] }
+        });
+
+        const occupancyChart = new Chart(document.getElementById('occupancyChart').getContext('2d'), {
+            type: 'line',
+            data: { labels: times, datasets: [{ label: 'Occupancy', data: occupancy, borderColor: 'green', fill: false }] }
+        });
+
+        const socket = io();
+        socket.on('newLog', log => {
+            const time = new Date(log.sensorData.time).toLocaleTimeString();
+            times.push(time);
+            temps.push(log.sensorData.temperature);
+            humidity.push(log.sensorData.humidity);
+            occupancy.push(log.sensorData.occupancy);
+
+            if(times.length > 50) { times.shift(); temps.shift(); humidity.shift(); occupancy.shift(); }
+
+            tempChart.update();
+            humidityChart.update();
+            occupancyChart.update();
+
+            // Show alert if present
+            if(log.alert && log.alert !== "None") {
+                showAlert(log.alert, "danger");
+            } else {
+                hideAlert();
+            }
+        });
+    </script>
+</body>
+</html>
