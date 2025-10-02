@@ -1,0 +1,46 @@
+<!-- public/index.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Weather Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 1rem; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  </style>
+</head>
+<body>
+  <h1>Live Weather & Fire Dashboard</h1>
+  <table id="tbl">
+    <thead><tr><th>Region</th><th>Temp</th><th>Rain</th><th>Wind</th><th>Fire</th><th>Last update</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    socket.on("connect", () => console.log("Connected to dashboard server"));
+    socket.emit("getSnapshot");
+
+    function render(data){
+      const tbody = document.querySelector("#tbl tbody");
+      tbody.innerHTML = "";
+      Object.keys(data).forEach(region => {
+        const r = data[region];
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${region}</td>
+                        <td>${r.temp ?? "N/A"}</td>
+                        <td>${r.rain ?? "N/A"}</td>
+                        <td>${r.wind ?? "N/A"}</td>
+                        <td>${r.fire ?? "N/A"}</td>
+                        <td>${new Date(parseInt(r.last_update||0)).toLocaleString()}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    socket.on("snapshot", (d) => render(d));
+    socket.on("update", (d) => render(d));
+  </script>
+</body>
+</html>
